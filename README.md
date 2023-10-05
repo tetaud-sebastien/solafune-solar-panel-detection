@@ -1,0 +1,1 @@
+# solafune-solar-panel-detection
