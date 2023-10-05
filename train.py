@@ -270,18 +270,13 @@ def main(config):
 
             # first compute statistics for true positives, false positives, false negative and
             # true negative "pixels"
-            tp, fp, fn, tn = smp.metrics.get_stats(
-                seg_preds, seg_targets, mode='multilabel', threshold=0.5)
-            # then compute metrics with required reduction (see metric docs)
-            iou_score = smp.metrics.iou_score(
-                tp, fp, fn, tn, reduction="micro")
+            tp, fp, fn, tn = smp.metrics.get_stats(seg_preds, seg_targets, mode='multilabel', threshold=0.5)
+            iou_score = smp.metrics.iou_score(tp, fp, fn, tn, reduction="micro")
            
             f1_score = smp.metrics.f1_score(tp, fp, fn, tn, reduction="micro")
-            f2_score = smp.metrics.fbeta_score(
-                tp, fp, fn, tn, beta=2, reduction="micro")
+            f2_score = smp.metrics.fbeta_score(tp, fp, fn, tn, beta=2, reduction="micro")
             accuracy = smp.metrics.accuracy(tp, fp, fn, tn, reduction="macro")
-            recall = smp.metrics.recall(
-                tp, fp, fn, tn, reduction="micro-imagewise")
+            recall = smp.metrics.recall(tp, fp, fn, tn, reduction="micro-imagewise")
 
             # IoU = intersection_over_union(predictions=seg_preds, targets=seg_targets,threshold=threshold)
             iou_metrics.append(float(iou_score.detach().cpu().numpy()))
