@@ -164,6 +164,10 @@ class TrainDataset(Dataset):
             
 
 
+
+
+
+
         if self.transforms:
 
             data_augmentation = CustomDataAugmentation(image=image, mask=mask, mean=0, std_dev=0.1)

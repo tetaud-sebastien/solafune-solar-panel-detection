@@ -116,24 +116,24 @@ def generator_conv(in_channels, out_channels, kernel_size=3, stride=1, padding=1
 
 
 
-class SimpleResidualBlock(nn.Module):
+# class SimpleResidualBlock(nn.Module):
 
-    def __init__(self, num_channels):
-        super().__init__()
-        self.conv1 = Conv2dBlock(in_channels=num_channels, out_channels=3, kernel_size=3, stride=1, padding=1, dilation=1, activation='relu',norm='bn')
-        self.conv2 = Conv2dBlock(in_channels=3, out_channels=3, kernel_size=3, stride=1, padding=1, dilation=1, activation='relu',norm='bn')
+#     def __init__(self, num_channels):
+#         super().__init__()
+#         self.conv1 = Conv2dBlock(in_channels=num_channels, out_channels=, kernel_size=3, stride=1, padding=1, dilation=1, activation='relu',norm='bn')
+#         self.conv2 = Conv2dBlock(in_channels=3, out_channels=3, kernel_size=3, stride=1, padding=1, dilation=1, activation='relu',norm='bn')
 
-    def forward(self, x):
-        print(x.shape)
-        out = self.conv1(x)
-        print(out.shape)
+#     def forward(self, x):
+#         print(x.shape)
+#         out = self.conv1(x)
+#         print(out.shape)
 
-        out = self.conv2(out)
-        print(out.shape)
-        return out + x 
+#         out = self.conv2(out)
+#         print(out.shape)
+#         return out + x 
 
 class Encoder(nn.Module):
-    def __init__(self, num_channels=3):
+    def __init__(self, num_channels=12):
         super(Encoder, self).__init__()
         
         
@@ -163,7 +163,6 @@ class Encoder(nn.Module):
         
         X1 = self.conv1(X0) # (112X112X64) -> (56X56X64)
         X1_1 = self.conv1_1(X1)
-        # Resnet :TODO Double conv in class + Resnet
         X1_1 = X1 + X1_1
         
 
@@ -210,7 +209,7 @@ class SegDecoder(nn.Module):
         self.t_conv4_1 = TransposeConv2dLayer(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1, dilation=1, activation='relu',norm='bn',scale_factor=1)
 
         self.t_conv5 = TransposeConv2dLayer(in_channels=128, out_channels=64, kernel_size=3, stride=1, padding=1, dilation=1, activation='relu',norm='bn')
-        self.out = Conv2dBlock(in_channels=64, out_channels=num_class, kernel_size=1, stride=1, padding=0, dilation=1, activation='none',norm='none')
+        self.out = Conv2dBlock(in_channels=64, out_channels=num_class, kernel_size=1, stride=1, padding=0, dilation=1, activation='sigmoid',norm='none')
         
 
     def forward(self, x):
@@ -245,66 +244,6 @@ class SegDecoder(nn.Module):
 
         return X
 
-
-
-class DepthDecoder(nn.Module):
-    def __init__(self, num_channels=3):
-        super(DepthDecoder, self).__init__()
-        
-        self.logger = CustomLogger(name='DepthDecoder')
-        
-        # Decoder
-        self.t_conv0 = TransposeConv2dLayer(in_channels=1024, out_channels=512, kernel_size=3, stride=1, padding=1, dilation=1, activation='relu',norm='bn')
-
-        self.t_conv1 = TransposeConv2dLayer(in_channels=1024, out_channels=512, kernel_size=3, stride=1, padding=1, dilation=1, activation='relu',norm='bn',scale_factor=2)
-        self.t_conv1_1 = TransposeConv2dLayer(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1, dilation=1, activation='relu',norm='bn',scale_factor=1)
-
-
-        self.t_conv2 = TransposeConv2dLayer(in_channels=768, out_channels=256, kernel_size=3, stride=1, padding=1, dilation=1, activation='relu',norm='bn')
-        self.t_conv2_1 = TransposeConv2dLayer(in_channels=256, out_channels=256, kernel_size=3, stride=1, padding=1, dilation=1, activation='relu',norm='bn',scale_factor=1)
-
-        self.t_conv3 = TransposeConv2dLayer(in_channels=384, out_channels=128, kernel_size=3, stride=1, padding=1, dilation=1, activation='relu',norm='bn')
-        self.t_conv3_1 = TransposeConv2dLayer(in_channels=128, out_channels=128, kernel_size=3, stride=1, padding=1, dilation=1, activation='relu',norm='bn',scale_factor=1)
-
-        
-        self.t_conv4 = TransposeConv2dLayer(in_channels=192, out_channels=64, kernel_size=3, stride=1, padding=1, dilation=1, activation='relu',norm='bn')
-        self.t_conv4_1 = TransposeConv2dLayer(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1, dilation=1, activation='relu',norm='bn',scale_factor=1)
-
-        self.t_conv5 = TransposeConv2dLayer(in_channels=128, out_channels=64, kernel_size=3, stride=1, padding=1, dilation=1, activation='relu',norm='bn')
-        self.out = Conv2dBlock(in_channels=64, out_channels=1, kernel_size=1, stride=1, padding=0, dilation=1, activation='sigmoid',norm='none')
-        
-
-    def forward(self, x):
-
-        X0, X1, X2, X3, X4, X5 = x
-        #Encoder
-        t_X0 = self.t_conv0(X5)
-        t_X0 = torch.cat((t_X0, X4), dim=1)
-
-        t_X1 = self.t_conv1(t_X0)
-        t_X1_1 = self.t_conv1_1(t_X1)
-        t_X1_1 = t_X1_1 + t_X1
-        t_X1 = torch.cat((t_X1_1, X3), dim=1)
-
-        t_X2 = self.t_conv2(t_X1)
-        t_X2_1 = self.t_conv2_1(t_X2)
-        t_X2_1 = t_X2_1 + t_X2
-        t_X2 = torch.cat((t_X2_1, X2), dim=1)
-
-        t_X3 = self.t_conv3(t_X2)
-        t_X3_3 = self.t_conv3_1(t_X3)
-        t_X3_3 = t_X3_3 + t_X3
-        t_X3 = torch.cat((t_X3_3, X1), dim=1)
-
-        t_X4 = self.t_conv4(t_X3)
-        t_X4_1 = self.t_conv4_1(t_X4)
-        t_X4_1 = t_X4_1 + t_X4
-        t_X4 = torch.cat((t_X4_1, X0), dim=1)
-
-        t_X5 = self.t_conv5(t_X4)
-        X = self.out(t_X5)
-
-        return X
 
 
 class Unet(nn.Module):
@@ -323,13 +262,13 @@ class Unet(nn.Module):
         
         return seg_out
 
-# if __name__== "__main__":
+if __name__== "__main__":
 
 
-#     x = torch.rand((1,3,256,256))
-#     net = Unet(num_channels=3,num_class=6)
-#     seg_out = net(x)
-#     print(seg_out.shape)
+    x = torch.rand((1,12,128,128))
+    net = Unet(num_channels=12,num_class=1)
+    seg_out = net(x)
+    print(seg_out.shape)
 
 
 

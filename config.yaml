@@ -4,8 +4,8 @@ prediction_dir: training_prediction/
 threshold: 0.5
 alpha: 0.5 #weight of loss for multi training training
 loss: "Dice" #BCE
-gpu_device: 1
-lr: 0.5e-4
+gpu_device: 0
+lr: 1e-4
 batch_size: 64
 epochs: 100
 workers: 8 

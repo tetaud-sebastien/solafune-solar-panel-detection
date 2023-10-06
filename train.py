@@ -106,12 +106,12 @@ def main(config):
 
     import segmentation_models_pytorch as smp
 
-    model = smp.FPN(
+    model = smp.DeepLabV3Plus(
         encoder_name="resnet18",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
         # use `imagenet` pre-trained weights for encoder initialization
         # encoder_weights="imagenet",
         # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-        in_channels=12,
+        in_channels=1,
         # model output channels (number of classes in your dataset)
         classes=1,
         
@@ -272,6 +272,10 @@ def main(config):
 
             # first compute statistics for true positives, false positives, false negative and
             # true negative "pixels"
+
+
+
+
             tp, fp, fn, tn = smp.metrics.get_stats(seg_preds[:, 0, :, :], seg_targets, mode='binary', threshold=0.5)
             iou_score = smp.metrics.iou_score(tp, fp, fn, tn, reduction="micro")
            
