@@ -308,7 +308,7 @@ class DepthDecoder(nn.Module):
 
 
 class Unet(nn.Module):
-    def __init__(self, num_channels=3,num_class=23):
+    def __init__(self, num_channels=12,num_class=1):
         super(Unet, self).__init__()
     
         

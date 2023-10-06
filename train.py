@@ -22,7 +22,7 @@ from tqdm import tqdm
 
 # from models import Unet
 from resunet import Unet
-from datasets import TrainDataset, EvalDataset
+from datasets_solafune import TrainDataset, EvalDataset
 from utils import *
 from logs.train import train_log, val_log
 import segmentation_models_pytorch as smp
@@ -107,13 +107,13 @@ def main(config):
     import segmentation_models_pytorch as smp
 
     model = smp.Unet(
-        encoder_name="resnet34",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+        encoder_name="mobilenet_v2",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
         # use `imagenet` pre-trained weights for encoder initialization
         encoder_weights="imagenet",
         # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-        in_channels=3,
+        in_channels=12,
         # model output channels (number of classes in your dataset)
-        classes=23,
+        classes=1,
     )
 
     logger.info("Number of GPU(s) {}: ".format(torch.cuda.device_count()))
@@ -135,10 +135,10 @@ def main(config):
 
     # Load train and test data path
     train_path = pd.read_csv('data_splits/train_path.csv')
-    train_path = train_path.loc[train_path['dataset'].isin(['CITYSCAPES'])]
-    train_path = train_path[:100]
+    # train_path = train_path.loc[train_path['dataset'].isin(['CITYSCAPES'])]
+    # train_path = train_path[:100]
     valid_path = pd.read_csv('data_splits/test_path.csv')
-    valid_path = valid_path.loc[valid_path['dataset'].isin(['CITYSCAPES'])]
+    # valid_path = valid_path.loc[valid_path['dataset'].isin(['CITYSCAPES'])]
     # valid_path = valid_path[:20]
     logger.info("Number of Training data {0:d}".format(len(train_path)))
     logger.info("------")
@@ -270,7 +270,7 @@ def main(config):
 
             # first compute statistics for true positives, false positives, false negative and
             # true negative "pixels"
-            tp, fp, fn, tn = smp.metrics.get_stats(seg_preds, seg_targets, mode='multilabel', threshold=0.5)
+            tp, fp, fn, tn = smp.metrics.get_stats(seg_preds, seg_targets, mode='binary', threshold=0.5)
             iou_score = smp.metrics.iou_score(tp, fp, fn, tn, reduction="micro")
            
             f1_score = smp.metrics.f1_score(tp, fp, fn, tn, reduction="micro")
