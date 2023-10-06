@@ -10,6 +10,9 @@ import rioxarray as xr
 
 import torchvision.transforms.functional as F
 
+import warnings
+warnings.filterwarnings("ignore")
+
 def center_crop(img, dim):
     """
     Center crop an image.
@@ -127,24 +130,15 @@ class TrainDataset(Dataset):
         image = torch.nn.functional.normalize(image)
         
 
-        
-        logger.info("image: +> {}".format(image.shape))
-        
-       
-
-        # logger.info("image: +> {}".format(image.shape))
-
         mask_path = self.df_path.mask_path.iloc[index]
         mask = xr.open_rasterio(mask_path, masked=True)
         mask = mask[0,:,:]
         mask = mask.values
         mask = cv2.resize(mask,(32,32))
-
-
         mask = torch.Tensor(mask)
-        logger.info("mask: +> {}".format(mask.shape))
-        logger.info("mask: +> {}".format(type(mask)))
-        # mask = F.resize(mask, 32)
+        mask =mask.to(torch.int)
+       
+        # mask = F.resize(mask, 128)
         return image, mask
 
     def __len__(self):
@@ -162,24 +156,27 @@ class EvalDataset(Dataset):
     def __getitem__(self, index):
 
         img_path = self.df_path.rgb_path.iloc[index]
+
         image = xr.open_rasterio(img_path, masked=False)
         image = image.values
+
         image = np.transpose(image, (1,2,0))
         image = cv2.resize(image, (32, 32))
         image = np.transpose(image, (-1,0,1))
+        # new_size = (32, 32)
         image = torch.Tensor(image)
         image = torch.nn.functional.normalize(image)
 
-        # resized_image = torch.nn.functional.interpolate(image.unsqueeze(0).unsqueeze(0), size=new_size, mode='trilinear', align_corners=False)
-        # resized_image = resized_image.squeeze(0).squeeze(0)
-        # image = resized_image
         mask_path = self.df_path.mask_path.iloc[index]
         mask = xr.open_rasterio(mask_path, masked=True)
         mask = mask[0,:,:]
         mask = mask.values
-        mask = torch.Tensor(mask)
-        mask = F.resize(mask, 32)
+        mask = cv2.resize(mask,(32,32))
 
+        mask = torch.Tensor(mask)
+        mask =mask.to(torch.int)
+
+        # mask = F.resize(mask, 128)
         return image, mask
 
 

@@ -106,14 +106,15 @@ def main(config):
 
     import segmentation_models_pytorch as smp
 
-    model = smp.Unet(
-        encoder_name="mobilenet_v2",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+    model = smp.FPN(
+        encoder_name="resnet18",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
         # use `imagenet` pre-trained weights for encoder initialization
-        encoder_weights="imagenet",
+        # encoder_weights="imagenet",
         # model input channels (1 for gray-scale images, 3 for RGB, etc.)
         in_channels=12,
         # model output channels (number of classes in your dataset)
         classes=1,
+        
     )
 
     logger.info("Number of GPU(s) {}: ".format(torch.cuda.device_count()))
@@ -147,11 +148,11 @@ def main(config):
 
     train_dataset = TrainDataset(df_path=train_path, transforms=True)
     train_dataloader = DataLoader(
-        dataset=train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+        dataset=train_dataset, batch_size=16, shuffle=True, num_workers=0)
 
     eval_dataset = EvalDataset(df_path=valid_path, transforms=True)
     eval_dataloader = DataLoader(
-        dataset=eval_dataset, batch_size=8, shuffle=False)
+        dataset=eval_dataset, batch_size=16, shuffle=False)
 
     best_weights = copy.deepcopy(model.state_dict())
     best_epoch = 0
@@ -197,6 +198,7 @@ def main(config):
                         torch.float32), seg_targets.to(torch.float32))
 
                 elif loss_func == "BCE":
+
 
                     criterion_seg = nn.BCELoss()
                     loss_train = criterion_seg(seg_preds[:, 0, :, :].to(
@@ -261,16 +263,16 @@ def main(config):
                 eval_loss = criterion_seg(seg_preds[:, 0, :, :].to(
                     torch.float32), seg_targets.to(torch.float32))
 
-            val_log(step=index, loss=eval_loss, images_inputs=images_inputs,
-                    seg_targets=seg_targets, seg_preds=seg_preds,
-                    tensorboard_writer=val_tensorboard_writer, name="Validation",
-                    prediction_dir=prediction_dir)
+            # val_log(step=index, loss=eval_loss, images_inputs=images_inputs,
+            #         seg_targets=seg_targets, seg_preds=seg_preds,
+            #         tensorboard_writer=val_tensorboard_writer, name="Validation",
+            #         prediction_dir=prediction_dir)
 
             eval_losses.update(eval_loss.item(), len(images_inputs))
 
             # first compute statistics for true positives, false positives, false negative and
             # true negative "pixels"
-            tp, fp, fn, tn = smp.metrics.get_stats(seg_preds, seg_targets, mode='binary', threshold=0.5)
+            tp, fp, fn, tn = smp.metrics.get_stats(seg_preds[:, 0, :, :], seg_targets, mode='binary', threshold=0.5)
             iou_score = smp.metrics.iou_score(tp, fp, fn, tn, reduction="micro")
            
             f1_score = smp.metrics.f1_score(tp, fp, fn, tn, reduction="micro")
@@ -288,7 +290,7 @@ def main(config):
         metrics_dict[epoch] = {"IoU": np.mean(iou_metrics), "F1": np.mean(f1_score_metrics), "F2": np.mean(f2_score_metrics),
                                "Accuracy": np.mean(recall_metrics), "Recall": np.mean(recall_metrics)
                                }
-
+        print(metrics_dict)
         df_metrics = pd.DataFrame(metrics_dict).T
         df_mean_metrics = df_metrics.mean()
         df_mean_metrics = pd.DataFrame(df_mean_metrics).T
