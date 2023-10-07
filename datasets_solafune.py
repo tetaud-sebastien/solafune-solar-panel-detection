@@ -174,10 +174,9 @@ class TrainDataset(Dataset):
         # mask = cv2.resize(mask,(32*3,32*4))
         mask = torch.Tensor(mask)
         mask =mask.to(torch.int)
-        # logger.info(mask.shape)
 
        
-        # mask = F.resize(mask, 128)
+        
         return image, mask
 
     def __len__(self):
@@ -231,7 +230,7 @@ class EvalDataset(Dataset):
         mask = torch.Tensor(mask)
         mask =mask.to(torch.int)
 
-        # mask = F.resize(mask, 128)
+
         return image, mask
 
 

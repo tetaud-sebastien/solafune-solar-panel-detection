@@ -98,36 +98,38 @@ def val_log(step, images_inputs, seg_targets, seg_preds,
     images_inputs = torch.permute(images_inputs, (0, 2, 3, 1))
     images = images_inputs.detach().cpu().numpy()
     seg_targets = seg_targets.detach().cpu().numpy()
+    seg_preds = seg_preds.detach().cpu().numpy()
 
-    if step % 400 == 0:
+
+
+    if step % 10 == 0:
         for i in range(min(images.shape[0], MAX_TENSORBOARD_IMAGES)):
 
             image = images[i]
             seg_pred = seg_preds[i]
             mask = seg_targets[i]
             
-            class_probs = torch.softmax(seg_pred, dim=0)
-            mask_prediction = torch.argmax(class_probs, dim=0).cpu().numpy()
+                    # # Apply thresholding to convert values to 0 or 1
+            binary_predictions = (seg_pred > 0.5).astype(np.uint8)
+            binary_predictions = binary_predictions[0,:,:]
+
+            # Scale image values to the range [0, 255]
             image = ((image - image.min()) / (image.max() - image.min())) * 255
             image = image.astype(np.uint8)
 
-            label_ids_to_use = [i for i in range (7,30)]
-            # Convert label IDs to indices for easy access
-            label_indices = {label.id: idx for idx, label in enumerate(labels)}
-            class_colors_dict = {label.id: label.color for label in labels if label.id in label_ids_to_use}
-            
-            pred_rgb = np.zeros((mask_prediction.shape[0], mask_prediction.shape[1], 3), dtype=np.uint8)
-            for c, color in enumerate(class_colors_dict.items()):
-                
-                # reverse color to have identic color mask as cityscapes
-                color_class = np.array(color[1])
+            mask_rgb = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
+            mask_rgb[..., 0] = mask * 255
+            mask_rgb[..., 1] = mask * 255
+            mask_rgb[..., 2] = mask * 255
 
-                color_class[0], color_class[-1] = color_class[-1], color_class[0]
-                color_class = tuple(color_class)
-                pred_rgb[mask_prediction == c] = color_class
+            pred_rgb = np.zeros((binary_predictions.shape[0], binary_predictions.shape[1], 3), dtype=np.uint8)
+            pred_rgb[..., 0] = binary_predictions * 255  
+            pred_rgb[..., 1] = binary_predictions * 255  
+            pred_rgb[..., 2] = binary_predictions * 255
 
-            # pred_rgb = cv2.cvtColor(pred_rgb, cv2.COLOR_BGR2RGB)
-            image_tensorboard = np.hstack((image, pred_rgb))
+        
+            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+            image_tensorboard = np.hstack((image, mask_rgb, pred_rgb))
             # # Add the input image to TensorBoard
             tensorboard_writer.add_image(f'{name}/input', image_tensorboard, dataformats='HWC')
             # # Save the image with prediction label to the prediction directory
