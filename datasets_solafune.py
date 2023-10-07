@@ -8,6 +8,7 @@ from labels import *
 from loguru import logger
 import rioxarray as xr
 
+
 import torchvision.transforms.functional as F
 
 import warnings
@@ -99,6 +100,24 @@ def get_random_crop(image, mask, crop_width=256, crop_height=256):
     return crop_image, crop_mask
 
 
+def normalize(band):
+    band_min, band_max = (band.min(), band.max())
+    return ((band-band_min)/((band_max - band_min)))
+
+
+def image_preprocessing(image_path):
+
+    image = xr.open_rasterio(image_path, masked=False).values
+    red = image[3,:,:]
+    green = image[2,:,:]
+    blue = image[1,:,:]
+    red_n = normalize(red)
+    green_n = normalize(green)
+    blue_n = normalize(blue)
+    rgb_composite_n= np.dstack((red_n, green_n, blue_n))
+    return rgb_composite_n
+
+
 class TrainDataset(Dataset):
     """
     Custom training dataset class.
@@ -119,15 +138,21 @@ class TrainDataset(Dataset):
 
         img_path = self.df_path.rgb_path.iloc[index]
 
-        image = xr.open_rasterio(img_path, masked=False)
-        image = image.values
-
-        image = np.transpose(image, (1,2,0))
-        image = cv2.resize(image, (32, 32))
-        image = np.reshape(image, (32*4, 32*3,1))
-        image = np.transpose(image, (-1,0,1))
-        # logger.info(image.shape)
+        image = image_preprocessing(img_path)
+        image = cv2.resize(image, (32, 32))/255.0
+        image = np.transpose(image, (2,1,0))
         image = torch.Tensor(image)
+        
+
+        # image = xr.open_rasterio(img_path, masked=False)
+        # image = image.values
+
+        # image = np.transpose(image, (1,2,0))
+        # image = cv2.resize(image, (32, 32))
+        # image = np.reshape(image, (32*4, 32*3,1))
+        # image = np.transpose(image, (-1,0,1))
+        # logger.info(image.shape)
+        # image = torch.Tensor(image)
         # image = torch.nn.functional.normalize(image)
    
 
@@ -145,8 +170,8 @@ class TrainDataset(Dataset):
         mask = xr.open_rasterio(mask_path, masked=True)
         mask = mask[0,:,:]
         mask = mask.values
-        # mask = cv2.resize(mask,(32,32))
-        mask = cv2.resize(mask,(32*3,32*4))
+        mask = cv2.resize(mask,(32,32))
+        # mask = cv2.resize(mask,(32*3,32*4))
         mask = torch.Tensor(mask)
         mask =mask.to(torch.int)
         # logger.info(mask.shape)
@@ -171,15 +196,22 @@ class EvalDataset(Dataset):
 
         img_path = self.df_path.rgb_path.iloc[index]
 
-        image = xr.open_rasterio(img_path, masked=False)
-        image = image.values
+        img_path = self.df_path.rgb_path.iloc[index]
 
-        image = np.transpose(image, (1,2,0))
-        image = cv2.resize(image, (32, 32))
-        image = np.reshape(image, (32*4, 32*3,1))
-        image = np.transpose(image, (-1,0,1))
-
+        image = image_preprocessing(img_path)
+        image = cv2.resize(image, (32, 32))/255.0
+        image = np.transpose(image, (2,1,0))
         image = torch.Tensor(image)
+
+        # image = xr.open_rasterio(img_path, masked=False)
+        # image = image.values
+
+        # image = np.transpose(image, (1,2,0))
+        # image = cv2.resize(image, (32, 32))
+        # image = np.reshape(image, (32*4, 32*3,1))
+        # image = np.transpose(image, (-1,0,1))
+
+        # image = torch.Tensor(image)
         # image = torch.nn.functional.normalize(image)
 
         # image = np.transpose(image, (1,2,0))
@@ -193,8 +225,8 @@ class EvalDataset(Dataset):
         mask = xr.open_rasterio(mask_path, masked=True)
         mask = mask[0,:,:]
         mask = mask.values
-        # mask = cv2.resize(mask,(32,32))
-        mask = cv2.resize(mask,(32*3,32*4))
+        mask = cv2.resize(mask,(32,32))
+        # mask = cv2.resize(mask,(32*3,32*4))
 
         mask = torch.Tensor(mask)
         mask =mask.to(torch.int)
