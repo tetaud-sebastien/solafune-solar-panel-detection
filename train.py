@@ -153,7 +153,7 @@ def main(config):
 
     train_dataset = TrainDataset(df_path=train_path, transforms=True)
     train_dataloader = DataLoader(
-        dataset=train_dataset, batch_size=16, shuffle=True, num_workers=0)
+        dataset=train_dataset, batch_size=16, shuffle=False, num_workers=0)
 
     eval_dataset = EvalDataset(df_path=valid_path, transforms=True)
     eval_dataloader = DataLoader(
@@ -274,7 +274,6 @@ def main(config):
                     prediction_dir=prediction_dir)
 
             eval_losses.update(eval_loss.item(), len(images_inputs))
-
 
             torch.save(seg_preds,'seg_preds')
             torch.save(seg_targets,'seg_targets')

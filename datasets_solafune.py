@@ -141,41 +141,15 @@ class TrainDataset(Dataset):
         image = image_preprocessing(img_path)
         image = cv2.resize(image, (32, 32))/255.0
         image = np.transpose(image, (2,1,0))
-        image = torch.Tensor(image)
-        
-
-        # image = xr.open_rasterio(img_path, masked=False)
-        # image = image.values
-
-        # image = np.transpose(image, (1,2,0))
-        # image = cv2.resize(image, (32, 32))
-        # image = np.reshape(image, (32*4, 32*3,1))
-        # image = np.transpose(image, (-1,0,1))
-        # logger.info(image.shape)
-        # image = torch.Tensor(image)
-        # image = torch.nn.functional.normalize(image)
-   
-
-        # image = np.transpose(image, (1,2,0))
-        # image = cv2.resize(image, (32, 32))
-        # image = np.transpose(image, (-1,0,1))
-        # logger.info(image.shape)
-        # new_size = (32, 32)
-        # image = torch.Tensor(image)
-        # image = torch.nn.functional.normalize(image)
-        # logger.info(image.shape)
-        
+        image = torch.Tensor(image)        
 
         mask_path = self.df_path.mask_path.iloc[index]
         mask = xr.open_rasterio(mask_path, masked=True)
         mask = mask[0,:,:]
         mask = mask.values
         mask = cv2.resize(mask,(32,32))
-        # mask = cv2.resize(mask,(32*3,32*4))
         mask = torch.Tensor(mask)
         mask =mask.to(torch.int)
-
-       
         
         return image, mask
 
@@ -195,42 +169,19 @@ class EvalDataset(Dataset):
 
         img_path = self.df_path.rgb_path.iloc[index]
 
-        img_path = self.df_path.rgb_path.iloc[index]
-
         image = image_preprocessing(img_path)
         image = cv2.resize(image, (32, 32))/255.0
         image = np.transpose(image, (2,1,0))
-        image = torch.Tensor(image)
-
-        # image = xr.open_rasterio(img_path, masked=False)
-        # image = image.values
-
-        # image = np.transpose(image, (1,2,0))
-        # image = cv2.resize(image, (32, 32))
-        # image = np.reshape(image, (32*4, 32*3,1))
-        # image = np.transpose(image, (-1,0,1))
-
-        # image = torch.Tensor(image)
-        # image = torch.nn.functional.normalize(image)
-
-        # image = np.transpose(image, (1,2,0))
-        # image = cv2.resize(image, (32, 32))
-        # image = np.transpose(image, (-1,0,1))
-        # # new_size = (32, 32)
-        # image = torch.Tensor(image)
-        # image = torch.nn.functional.normalize(image)
+        image = torch.Tensor(image)        
 
         mask_path = self.df_path.mask_path.iloc[index]
         mask = xr.open_rasterio(mask_path, masked=True)
         mask = mask[0,:,:]
         mask = mask.values
         mask = cv2.resize(mask,(32,32))
-        # mask = cv2.resize(mask,(32*3,32*4))
-
         mask = torch.Tensor(mask)
         mask =mask.to(torch.int)
-
-
+        
         return image, mask
 
 

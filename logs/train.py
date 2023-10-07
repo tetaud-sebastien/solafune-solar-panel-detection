@@ -102,7 +102,7 @@ def val_log(step, images_inputs, seg_targets, seg_preds,
 
 
 
-    if step % 10 == 0:
+    if step % 100 == 0:
         for i in range(min(images.shape[0], MAX_TENSORBOARD_IMAGES)):
 
             image = images[i]
