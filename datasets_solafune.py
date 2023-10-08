@@ -4,7 +4,6 @@ import random
 import torch
 from torch.utils.data import Dataset
 from torchvision import transforms, utils
-from labels import *
 from loguru import logger
 import rioxarray as xr
 

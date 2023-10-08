@@ -314,7 +314,7 @@ def main(config):
         #                        "Accuracy": np.mean(recall_metrics), "Recall": np.mean(recall_metrics)
         #                        }
         
-        metrics_dict[epoch] = { "F1": np.mean(f1_score_metrics)
+        metrics_dict[epoch] = { "IoU": np.mean(iou_metrics),"F1": np.mean(f1_score_metrics)
                                }
         print(metrics_dict)
         df_metrics = pd.DataFrame(metrics_dict).T

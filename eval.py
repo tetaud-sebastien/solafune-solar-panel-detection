@@ -23,7 +23,6 @@ from torch import nn
 from collections import OrderedDict
 
 from loguru import logger
-from labels import *
 import segmentation_models_pytorch as smp
 
 
