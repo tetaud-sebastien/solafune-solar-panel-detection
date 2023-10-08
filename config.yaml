@@ -3,11 +3,11 @@ outpout_dir: results/
 prediction_dir: training_prediction/
 threshold: 0.5
 alpha: 0.5 #weight of loss for multi training training
-loss: "Dice" #BCE
+loss: "WeightedBCE" # v
 gpu_device: 0
 lr: 1e-4
 batch_size: 64
-epochs: 100
+epochs: 10
 workers: 8 
 seed: 123
 log_dir : log/

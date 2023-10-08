@@ -8,8 +8,6 @@ import glob
 from torch import nn
 import pandas as pd
 from collections import OrderedDict
-from datasets_solafune import TestDataset
-from torch.utils.data.dataloader import DataLoader
 import segmentation_models_pytorch as smp
 from loguru import logger
 import rioxarray as xr
