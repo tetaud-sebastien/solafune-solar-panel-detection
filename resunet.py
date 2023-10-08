@@ -133,7 +133,7 @@ def generator_conv(in_channels, out_channels, kernel_size=3, stride=1, padding=1
 #         return out + x 
 
 class Encoder(nn.Module):
-    def __init__(self, num_channels=12):
+    def __init__(self, num_channels=3):
         super(Encoder, self).__init__()
         
         
@@ -247,7 +247,7 @@ class SegDecoder(nn.Module):
 
 
 class Unet(nn.Module):
-    def __init__(self, num_channels=12,num_class=1):
+    def __init__(self, num_channels=3,num_class=1):
         super(Unet, self).__init__()
     
         
@@ -265,8 +265,8 @@ class Unet(nn.Module):
 if __name__== "__main__":
 
 
-    x = torch.rand((1,12,128,128))
-    net = Unet(num_channels=12,num_class=1)
+    x = torch.rand((1,3,64,64))
+    net = Unet(num_channels=3,num_class=1)
     seg_out = net(x)
     print(seg_out.shape)
 

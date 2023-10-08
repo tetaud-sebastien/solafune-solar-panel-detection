@@ -122,7 +122,7 @@ class TrainDataset(Dataset):
     Custom training dataset class.
     """
 
-    def __init__(self, df_path, transforms=None):
+    def __init__(self, df_path):
         """
         Initialize the training dataset.
 
@@ -131,14 +131,13 @@ class TrainDataset(Dataset):
             transforms (callable): A function/transform to apply to the data (default is None).
         """
         self.df_path = df_path
-        self.transforms = transforms
 
     def __getitem__(self, index):
 
         img_path = self.df_path.rgb_path.iloc[index]
 
         image = image_preprocessing(img_path)
-        image = cv2.resize(image, (32, 32))/255.0
+        image = cv2.resize(image, (32, 32),interpolation=cv2.INTER_NEAREST)/255.0
         image = np.transpose(image, (2,1,0))
         image = torch.Tensor(image)        
 
@@ -146,7 +145,7 @@ class TrainDataset(Dataset):
         mask = xr.open_rasterio(mask_path, masked=True)
         mask = mask[0,:,:]
         mask = mask.values
-        mask = cv2.resize(mask,(32,32))
+        mask = cv2.resize(mask,(32,32),interpolation=cv2.INTER_NEAREST)
         mask = torch.Tensor(mask)
         mask =mask.to(torch.int)
         
@@ -159,17 +158,16 @@ class TrainDataset(Dataset):
 class EvalDataset(Dataset):
 
 
-    def __init__(self, df_path ,transforms=None):
+    def __init__(self, df_path):
         
         self.df_path = df_path
-        self.transforms = transforms
 
     def __getitem__(self, index):
 
         img_path = self.df_path.rgb_path.iloc[index]
 
         image = image_preprocessing(img_path)
-        image = cv2.resize(image, (32, 32))/255.0
+        image = cv2.resize(image, (32, 32),interpolation=cv2.INTER_NEAREST)/255.0
         image = np.transpose(image, (2,1,0))
         image = torch.Tensor(image)        
 
@@ -177,7 +175,7 @@ class EvalDataset(Dataset):
         mask = xr.open_rasterio(mask_path, masked=True)
         mask = mask[0,:,:]
         mask = mask.values
-        mask = cv2.resize(mask,(32,32))
+        mask = cv2.resize(mask,(32,32),interpolation=cv2.INTER_NEAREST)
         mask = torch.Tensor(mask)
         mask =mask.to(torch.int)
         

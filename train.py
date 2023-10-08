@@ -27,7 +27,10 @@ from utils import *
 from logs.train import train_log, val_log
 import segmentation_models_pytorch as smp
 
+from sklearn.metrics import f1_score
+from sklearn.metrics import jaccard_score
 from loguru import logger
+import segmentation_models_pytorch as smp
 
 
 def main(config):
@@ -61,12 +64,8 @@ def main(config):
     logger.info("output directory: {}".format(output_dir))
     logger.info("------")
 
-    # Tensorboard
-    # Kill any tensorboard subprocess
-    # subprocess.run("kill $(ps -e | grep 'tensorboard' | awk '{logger.info $1}')",shell=True)
     TENSORBOARD_DIR = 'tensorboard'
     tensorboard_path = os.path.join(log_dir, TENSORBOARD_DIR)
-    # logger.info("Tensorboard path: {}".format(tensorboard_path))
     logger.info("Tensorboard path: {}".format(tensorboard_path))
     if not os.path.exists(tensorboard_path):
         os.makedirs(tensorboard_path, exist_ok=True)
@@ -78,15 +77,13 @@ def main(config):
     os.makedirs(prediction_dir)
 
     cudnn.benchmark = True
-    # init logs
     if tbp is not None:
 
         logger.info("starting tensorboard")
         logger.info("------")
 
         command = f'tensorboard --logdir {tensorboard_path} --port {tbp} --host 10.0.0.6 --load_fast=true'
-        tensorboard_process = subprocess.Popen(
-            shlex.split(command), env=os.environ.copy())
+        tensorboard_process = subprocess.Popen(shlex.split(command), env=os.environ.copy())
 
         train_tensorboard_writer = SummaryWriter(
             os.path.join(tensorboard_path, 'train'), flush_secs=30)
@@ -101,26 +98,9 @@ def main(config):
 
     # Seed for reproductibility training
     torch.manual_seed(seed)
+    
 
-    # model = Unet()
-
-    import segmentation_models_pytorch as smp
-    aux_params=dict(
-    pooling='avg',             # one of 'avg', 'max'
-    dropout=0.5,               # dropout ratio, default is None
-    activation='sigmoid',      # activation function, default is None
-    # define number of output labels
-    )
-    model = smp.Unet(
-        encoder_name="resnet18",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
-        # use `imagenet` pre-trained weights for encoder initialization
-        # encoder_weights="imagenet",
-        # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-        in_channels=3,
-        # model output channels (number of classes in your dataset)
-        classes=1,
-        
-    )
+    model = smp.Unet(encoder_name="resnet18", encoder_weights=None,in_channels=3, classes=1, activation='sigmoid')
 
     logger.info("Number of GPU(s) {}: ".format(torch.cuda.device_count()))
     logger.info("GPU(s) in used {}: ".format(gpu_device))
@@ -129,6 +109,7 @@ def main(config):
     device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
     if len(str(gpu_device)) > 1:
         model = nn.DataParallel(model)
+
     model = model.to(device='cuda')
     nb_parameters = count_model_parameters(model=model)
     logger.info("Number of parameters {}: ".format(nb_parameters))
@@ -141,23 +122,19 @@ def main(config):
 
     # Load train and test data path
     train_path = pd.read_csv('data_splits/train_path.csv')
-    # train_path = train_path.loc[train_path['dataset'].isin(['CITYSCAPES'])]
     # train_path = train_path[:100]
     valid_path = pd.read_csv('data_splits/test_path.csv')
-    # valid_path = valid_path.loc[valid_path['dataset'].isin(['CITYSCAPES'])]
-    # valid_path = valid_path[:20]
+    # valid_path = valid_path[-50:]
     logger.info("Number of Training data {0:d}".format(len(train_path)))
     logger.info("------")
     logger.info("Number of Validation data {0:d}".format(len(valid_path)))
     logger.info("------")
 
-    train_dataset = TrainDataset(df_path=train_path, transforms=True)
-    train_dataloader = DataLoader(
-        dataset=train_dataset, batch_size=16, shuffle=False, num_workers=0)
+    train_dataset = TrainDataset(df_path=train_path)
+    train_dataloader = DataLoader(dataset=train_dataset, batch_size=16, shuffle=False, num_workers=0)
 
-    eval_dataset = EvalDataset(df_path=valid_path, transforms=True)
-    eval_dataloader = DataLoader(
-        dataset=eval_dataset, batch_size=1, shuffle=False)
+    eval_dataset = EvalDataset(df_path=valid_path)
+    eval_dataloader = DataLoader(dataset=eval_dataset, batch_size=1, shuffle=False)
 
     best_weights = copy.deepcopy(model.state_dict())
     best_epoch = 0
@@ -204,10 +181,8 @@ def main(config):
 
                 elif loss_func == "BCE":
 
-
                     criterion_seg = nn.BCELoss()
-                    loss_train = criterion_seg(seg_preds[:, 0, :, :].to(
-                        torch.float32), seg_targets.to(torch.float32))
+                    loss_train = criterion_seg(seg_preds[:, 0, :, :].to(torch.float32), seg_targets.to(torch.float32))
 
                 loss = loss_train
 
@@ -215,8 +190,7 @@ def main(config):
                 optimizer.step()
 
                 epoch_losses.update(loss.item(), len(images_inputs))
-                train_log(step=step, loss=loss,
-                          tensorboard_writer=train_tensorboard_writer, name="Training")
+                train_log(step=step, loss=loss, tensorboard_writer=train_tensorboard_writer, name="Training")
 
                 t.set_postfix(loss='{:.6f}'.format(epoch_losses.avg))
                 t.update(len(images_inputs))
@@ -224,8 +198,7 @@ def main(config):
                 step += 1
 
         # Save model
-        torch.save(model.state_dict(), os.path.join(
-            output_dir, 'epoch_{}.ckpt'.format(epoch)))
+        torch.save(model.state_dict(), os.path.join(output_dir, 'epoch_{}.ckpt'.format(epoch)))
         model.eval()
 
         iou_metrics = []
@@ -237,6 +210,8 @@ def main(config):
 
         # Model Evaluation
         for index, data in enumerate(eval_dataloader):
+            
+        
 
             images_inputs, seg_targets = data
             images_inputs = images_inputs.to(device)
@@ -268,24 +243,20 @@ def main(config):
                 eval_loss = criterion_seg(seg_preds[:, 0, :, :].to(
                     torch.float32), seg_targets.to(torch.float32))
 
-            val_log(step=index, loss=eval_loss, images_inputs=images_inputs,
+            val_log(epoch=epoch, step=index, loss=eval_loss, images_inputs=images_inputs,
                     seg_targets=seg_targets, seg_preds=seg_preds,
                     tensorboard_writer=val_tensorboard_writer, name="Validation",
                     prediction_dir=prediction_dir)
 
             eval_losses.update(eval_loss.item(), len(images_inputs))
 
-            torch.save(seg_preds,'seg_preds')
-            torch.save(seg_targets,'seg_targets')
-
             preds = seg_preds.detach().cpu().numpy()
             targets = seg_targets.detach().cpu().numpy()
-            
+
             threshold = 0.5
             binary_prediction = (preds[0,0,:,:] > threshold).astype(np.uint8)
             binary_prediction = binary_prediction.flatten()
             seg_target = targets[0,:,:].flatten()
-
 
 
             from sklearn.metrics import f1_score

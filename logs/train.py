@@ -60,7 +60,7 @@ def train_log(step, loss, tensorboard_writer, name, **kwargs):
             # tensorboard_writer.add_scalar(name+'/learning_rate', current_lr, step)
 
 
-def val_log(step, images_inputs, seg_targets, seg_preds,
+def val_log(epoch, step, images_inputs, seg_targets, seg_preds,
             tensorboard_writer, name, prediction_dir, **kwargs):
     """
     Logs validation-related information and visualizations to TensorBoard.
@@ -93,25 +93,25 @@ def val_log(step, images_inputs, seg_targets, seg_preds,
     if tensorboard_writer is not None:
         tensorboard_writer.add_scalar(name + '/loss', loss, step)
 
-    # Prepare images and predictions for TensorBoard visualization
-    images_inputs = torch.permute(images_inputs, (0, 2, 3, 1))
-    images = images_inputs.detach().cpu().numpy()
+
     seg_targets = seg_targets.detach().cpu().numpy()
     seg_preds = seg_preds.detach().cpu().numpy()
 
 
-
     if step % 100 == 0:
-        for i in range(min(images.shape[0], MAX_TENSORBOARD_IMAGES)):
+        for i in range(min(images_inputs.shape[0], MAX_TENSORBOARD_IMAGES)):
 
-            image = images[i]
+        
             seg_pred = seg_preds[i]
             mask = seg_targets[i]
+            image = images_inputs[i]
             
-                    # # Apply thresholding to convert values to 0 or 1
+            #Apply thresholding to convert values to 0 or 1
             binary_predictions = (seg_pred > 0.5).astype(np.uint8)
             binary_predictions = binary_predictions[0,:,:]
 
+            image = torch.permute(image, (2, 1, 0))
+            image = image.detach().cpu().numpy()
             # Scale image values to the range [0, 255]
             image = ((image - image.min()) / (image.max() - image.min())) * 255
             image = image.astype(np.uint8)
@@ -127,12 +127,13 @@ def val_log(step, images_inputs, seg_targets, seg_preds,
             pred_rgb[..., 2] = binary_predictions * 255
 
         
-            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             image_tensorboard = np.hstack((image, mask_rgb, pred_rgb))
             # # Add the input image to TensorBoard
             tensorboard_writer.add_image(f'{name}/input', image_tensorboard, dataformats='HWC')
             # # Save the image with prediction label to the prediction directory
             now = datetime.now()
             time = now.strftime("%m_%d_%Y_%H_%M_%S")
-            filename = os.path.join(prediction_dir, f'{time}_{i}.png')
+            filename = str(epoch)+ "_" + str(step) + '.png'
+            filename = os.path.join(prediction_dir, f'{time}_{filename}')
             cv2.imwrite(filename, image_tensorboard)
