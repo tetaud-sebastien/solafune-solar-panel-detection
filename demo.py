@@ -110,8 +110,8 @@ def main(args):
         logger.info("Create submit directory to tif files...")
         os.mkdir(output)
 
-    prediction_dir = "inference_eval"
-    if not os.path.exists("inference_eval"):
+    prediction_dir = "inference_pred"
+    if not os.path.exists("inference_pred"):
         logger.info("Create prediction directory to save png...")
         os.makedirs(prediction_dir, exist_ok=True)
 

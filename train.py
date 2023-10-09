@@ -249,7 +249,6 @@ def main(config):
                     prediction_dir=prediction_dir)
 
             eval_losses.update(eval_loss.item(), len(images_inputs))
-
             preds = seg_preds.detach().cpu().numpy()
             targets = seg_targets.detach().cpu().numpy()
 
@@ -263,27 +262,7 @@ def main(config):
             from sklearn.metrics import jaccard_score
 
             f1_score_metrics.append(f1_score(seg_target, binary_prediction))
-
             iou_metrics.append(jaccard_score(seg_target, binary_prediction))
-
-            # tp, fp, fn, tn = smp.metrics.get_stats(seg_preds[:, 0, :, :], seg_targets, mode='binary', threshold=0.5)
-            # iou_score = smp.metrics.iou_score(tp, fp, fn, tn, reduction="micro")
-           
-            # f1_score = smp.metrics.f1_score(tp, fp, fn, tn, reduction="micro")
-            # f2_score = smp.metrics.fbeta_score(tp, fp, fn, tn, beta=2, reduction="micro")
-            # accuracy = smp.metrics.accuracy(tp, fp, fn, tn, reduction="macro")
-            # recall = smp.metrics.recall(tp, fp, fn, tn, reduction="micro-imagewise")
-
-            # IoU = intersection_over_union(predictions=seg_preds, targets=seg_targets,threshold=threshold)
-            # iou_metrics.append(float(iou_score.detach().cpu().numpy()))
-            # f1_score_metrics.append(float(f1_score.detach().cpu().numpy()))
-            # f2_score_metrics.append(float(f2_score.detach().cpu().numpy()))
-            # accuracy_metrics.append(float(accuracy.detach().cpu().numpy()))
-            # recall_metrics.append(float(recall.detach().cpu().numpy()))
-
-        # metrics_dict[epoch] = {"IoU": np.mean(iou_metrics), "F1": np.mean(f1_score_metrics), "F2": np.mean(f2_score_metrics),
-        #                        "Accuracy": np.mean(recall_metrics), "Recall": np.mean(recall_metrics)
-        #                        }
         
         metrics_dict[epoch] = { "IoU": np.mean(iou_metrics),"F1": np.mean(f1_score_metrics)
                                }

@@ -1,33 +1,40 @@
 import argparse
 import os
-import datetime
-import time
 import torch
-import yaml
+
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-# from models import Unet
-from resunet import Unet
-
-from torch.utils.data.dataloader import DataLoader
-from datasets import TrainDataset, EvalDataset
 import cv2
-from utils import *
-from evaluate_depth import *
-
-
-import json
+import glob
 from torch import nn
+import pandas as pd
 from collections import OrderedDict
-
-from loguru import logger
 import segmentation_models_pytorch as smp
+from loguru import logger
+import rioxarray as xr
+
+import xarray as xar
+
+import natsort
+import warnings
+warnings.filterwarnings("ignore")
 
 
-logger.add("out.log", backtrace=False, diagnose=True)
+def normalize(band):
+    band_min, band_max = (band.min(), band.max())
+    return ((band-band_min)/((band_max - band_min)))
 
+def image_preprocessing(image_path):
+
+    xr_image = xr.open_rasterio(image_path, masked=False).values
+    red = xr_image[3,:,:]
+    green = xr_image[2,:,:]
+    blue = xr_image[1,:,:]
+    red_n = normalize(red)
+    green_n = normalize(green)
+    blue_n = normalize(blue)
+    rgb_composite_n= np.dstack((red_n, green_n, blue_n))
+
+    return rgb_composite_n
 
 def load_model(model_path, device):
     """
@@ -40,18 +47,7 @@ def load_model(model_path, device):
         model (nn.Module): The loaded model.
 
     """
-    # model = Unet()
-
-    import segmentation_models_pytorch as smp
-
-    model = smp.Unet(
-        encoder_name="vgg19",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
-        # use `imagenet` pre-trained weights for encoder initialization
-        # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-        in_channels=3,
-        # model output channels (number of classes in your dataset)
-        classes=23,
-    )
+    model = smp.Unet(encoder_name="resnet18", encoder_weights=None,in_channels=3, classes=1, activation='sigmoid')
 
     if device.type == 'cpu':
         checkpoint = torch.load(model_path, map_location=device)
@@ -61,14 +57,12 @@ def load_model(model_path, device):
             new_state_dict[name] = v
         model.load_state_dict(new_state_dict)
         model.eval()
-
         logger.info(model.eval())
 
     else:
         
         logger.info("==> Loading checkpoint '{}'".format(model_path))
         checkpoint = torch.load(model_path, map_location=device)
-        model = torch.nn.DataParallel(model)
         model.load_state_dict(checkpoint)
         model.eval()
         model.cuda()
@@ -87,205 +81,144 @@ def main(args):
     """
     
     model_path = args.checkpoint_path
-    source = args.input
     hardware = args.hardware
-    
+   
     if hardware=='cuda':
         device = torch.device(hardware)
-
-        try:
-            model = load_model(model_path, device)
-    
-        except Exception as e:
-            logger.exception("An error occurred: {}", e)
-        
+        model = load_model(model_path, device)
         model.to(hardware)
         if len(str(hardware))>1:
             model= nn.DataParallel(model)
-        
-        logger.info("------")
-        logger.info("Model run on: {}".format(hardware))
-        logger.info("------")
-       
+        print("------")
+        print("Model run on: {}".format(hardware))
+        print("------")
 
     else:
         device = torch.device(hardware)
         model = load_model(model_path, device)
         model.to(hardware)
-        logger.info("Model run on: {}".format(hardware))
-        
-    prediction_dir = "evaluation"
-    if not os.path.exists("evaluation"):
-        # console.print("Create prediction directory...", style="bold green")
-        logger.info("Create prediction directory...")
+        print("------")
+        print("Model run on: {}".format(hardware))
+        print("------")
+
+    
+    # Read input
+    input = "/home/sebastien/Documents/projects/solafune-solar-panel-detection/data/evaluation"
+    output = "/home/sebastien/Documents/projects/solafune-solar-panel-detection/data/eval_model"
+
+    if not os.path.isdir(output):
+        logger.info("Create submit directory to tif files...")
+        os.mkdir(output)
+
+    prediction_dir = "inference_eval"
+    if not os.path.exists("inference_eval"):
+        logger.info("Create prediction directory to save png...")
         os.makedirs(prediction_dir, exist_ok=True)
 
-    date = datetime.datetime.now()
-    date = date.strftime('%Y_%m_%d_%H_%M_%S')
-    output_dir = os.path.join(prediction_dir, '{}'.format(date))
-    os.makedirs(output_dir, exist_ok=True)
-        
+    df = pd.read_csv("/home/sebastien/Documents/projects/solafune-solar-panel-detection/data_splits/valid_path.csv")
 
-    # Read input
-    input = args.input
-    
-    test_path = pd.read_csv(input)
-    # test_path = test_path[:10]
-    logger.info("Number of Test data {0:d}".format(len(test_path)))    
-    logger.info("------")
-    eval_dataset = EvalDataset(df_path= test_path, transforms=None)
-    eval_dataloader = DataLoader(dataset=eval_dataset, batch_size=1, shuffle=False)
+    images_path = df["rgb_path"]
+    eval_masks = df["mask_path"]
+
 
     iou_metrics = []
     f1_score_metrics = []
-    f2_score_metrics = []
-    accuracy_metrics = []
-    recall_metrics = []
     metrics_dict = {}
 
-    for index, data in enumerate(eval_dataloader):
-        # for data in eval_dataloader:
-        image, seg_targets = data
-        
-        image = image.to(device)
-        seg_targets = seg_targets.to(device)
 
+    for i in range(len(images_path)):
+
+        path_image = images_path[i]
+        logger.info(path_image)
+        image = image_preprocessing(path_image)
+        
+        h, w, _ = image.shape
+
+        image = cv2.resize(image, (32, 32),interpolation=cv2.INTER_NEAREST)/255.0
+        image = np.transpose(image, (2,1,0))
+        image = torch.Tensor(image)        
+        image = torch.unsqueeze(image,dim=0)
+        
         with torch.no_grad():
-            
-            seg_preds = model(image)
-            logger.info(seg_preds.shape)
+
+            mask_pred = model(image)
+
+        mask_pred = mask_pred.detach().cpu().numpy()
+
+        mask_pred = mask_pred[0,:,:,:]
+
+        binary_predictions = (mask_pred > 0.5).astype(np.uint8)
+        binary_predictions = binary_predictions[0,:,:]
+        pred_rgb = np.zeros((binary_predictions.shape[0], binary_predictions.shape[1], 3), dtype=np.uint8)
+        pred_rgb[..., 0] = binary_predictions * 255  
+        pred_rgb[..., 1] = binary_predictions * 255  
+        pred_rgb[..., 2] = binary_predictions * 255
+        pred_rgb = cv2.resize(pred_rgb,(w,h),interpolation=cv2.INTER_NEAREST)
+        
+
+        mask_gt = xr.open_rasterio(eval_masks[i], masked=True)
+        mask_gt = mask_gt.values
+
+
 
         
-        tp, fp, fn, tn = smp.metrics.get_stats(seg_preds, seg_targets, mode='multilabel', threshold=0.5)
-        iou_score = smp.metrics.iou_score(tp, fp, fn, tn, reduction="micro")
+        binary_predictions = torch.Tensor(pred_rgb[:,:,0])/255.0
+        binary_predictions = binary_predictions.to(torch.int)
+        binary_predictions = torch.unsqueeze(binary_predictions,dim=0)
+        binary_predictions = binary_predictions.detach().cpu().numpy()
         
-        f1_score = smp.metrics.f1_score(tp, fp, fn, tn, reduction="micro")
-        f2_score = smp.metrics.fbeta_score(tp, fp, fn, tn, beta=2, reduction="micro")
-        accuracy = smp.metrics.accuracy(tp, fp, fn, tn, reduction="macro")
-        recall = smp.metrics.recall(tp, fp, fn, tn, reduction="micro-imagewise")
+        eval_masks_path = eval_masks[i]
+        mask_sample = xr.open_rasterio(eval_masks_path, mask=True)
+        
+        from sklearn.metrics import f1_score
+        from sklearn.metrics import jaccard_score
+        logger.warning(binary_predictions.shape)
+        f1_score_metrics.append(f1_score(mask_gt[0,:,:].flatten(), binary_predictions[0,:,:].flatten(),average='binary'))
+        iou_metrics.append(jaccard_score(mask_gt[0,:,:].flatten(), binary_predictions[0,:,:].flatten(),average='binary'))
+        
 
-        iou_metrics.append(float(iou_score.detach().cpu().numpy()))
-        f1_score_metrics.append(float(f1_score.detach().cpu().numpy()))
-        f2_score_metrics.append(float(f2_score.detach().cpu().numpy()))
-        accuracy_metrics.append(float(accuracy.detach().cpu().numpy()))
-        recall_metrics.append(float(recall.detach().cpu().numpy()))
+        x = mask_sample['x'].values
+        y = mask_sample['y'].values
+        band = mask_sample['band'].values
 
 
-        seg_pred = seg_preds[0,:,:,:]
+        final = xar.DataArray(binary_predictions, dims=('band','y', 'x'), coords={'band': band,'y': np.arange(0.5,binary_predictions.shape[1],1), 'x': np.arange(0.5,binary_predictions.shape[2])})
+        head, tail = os.path.split(path_image)
+        filename_tif = os.path.join(output,tail.replace("image","mask"))
+        final.rio.to_raster(filename_tif)
 
-        image = torch.permute(image, (0, 2, 3, 1))
-        image = image.detach().cpu().numpy()
+
+        mask_gt_rgb = np.zeros((mask_gt.shape[1], mask_gt.shape[2], 3), dtype=np.uint8)
+        mask_gt_rgb[..., 0] = mask_gt[0,:,:] * 255
+        mask_gt_rgb[..., 1] = mask_gt[0,:,:] * 255
+        mask_gt_rgb[..., 2] = mask_gt[0,:,:] * 255
+
         image = image[0,:,:,:]
-
-
-        class_probs = torch.softmax(seg_pred, dim=0)
-        mask_prediction = torch.argmax(class_probs, dim=0).cpu().numpy()
+        image = torch.permute(image, (2, 1, 0))
+        image = image.detach().cpu().numpy()
+        # Scale image values to the range [0, 255]
         image = ((image - image.min()) / (image.max() - image.min())) * 255
         image = image.astype(np.uint8)
-
-
-        label_ids_to_use = [i for i in range (7,30)]
-        # Convert label IDs to indices for easy access
-        label_indices = {label.id: idx for idx, label in enumerate(labels)}
-        class_colors_dict = {label.id: label.color for label in labels if label.id in label_ids_to_use}
-
-        pred_rgb = np.zeros((mask_prediction.shape[0], mask_prediction.shape[1], 3), dtype=np.uint8)
-        for c, color in enumerate(class_colors_dict.items()):
-            
-            # reverse color to have identic color mask as cityscapes
-            color_class = np.array(color[1])
-
-            color_class[0], color_class[-1] = color_class[-1], color_class[0]
-            color_class = tuple(color_class)
-            pred_rgb[mask_prediction == c] = color_class
-
-        image_output = np.hstack((image, pred_rgb))
-
-        image_filename = os.path.join(output_dir, str(index)+".png")
-        cv2.imwrite(image_filename, image_output)
-
-
-
-
-
+        image = cv2.resize(image,(w,h),interpolation=cv2.INTER_NEAREST)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image_to_save = np.hstack((image, mask_gt_rgb, pred_rgb))
         
+        filename = os.path.join(prediction_dir, f'evaluation_mask_{i}.png')
+        cv2.imwrite(filename, image_to_save)
 
-    
-
-
-
-
-    metrics_dict = {"IoU": np.mean(iou_metrics), "F1": np.mean(f1_score_metrics), "F2": np.mean(f2_score_metrics),
-                               "Accuracy": np.mean(recall_metrics), "Recall": np.mean(recall_metrics)}
-
-    report_filename = os.path.join(output_dir, "test_report.json")
-    with open(report_filename, 'w') as json_file:
-        json.dump(metrics_dict, json_file, indent=4)
-
-    logger.info("------")
-    logger.info("Evaluation Done")
-    logger.info("------")
-    #     IoU = intersection_over_union(predictions=seg_preds, targets=seg_targets,threshold=threshold)
-    #     IoU_metrics.append(IoU)
-
-    #     seg_preds = seg_preds.detach().cpu().numpy()
-    #     seg_targets = seg_targets.detach().cpu().numpy()
-
-    #     image = images_inputs[0,:,:,:].detach().cpu().numpy()
-    #     class_probs = torch.softmax(seg_pred, dim=0)
-    #         mask_prediction = torch.argmax(class_probs, dim=0).cpu().numpy()
-    #         image = ((image - image.min()) / (image.max() - image.min())) * 255
-    #         image = image.astype(np.uint8)
-
-    #         label_ids_to_use = [i for i in range (7,30)]
-    #         # Convert label IDs to indices for easy access
-    #         label_indices = {label.id: idx for idx, label in enumerate(labels)}
-    #         class_colors_dict = {label.id: label.color for label in labels if label.id in label_ids_to_use}
-            
-    #         pred_rgb = np.zeros((mask_prediction.shape[0], mask_prediction.shape[1], 3), dtype=np.uint8)
-    #         for c, color in enumerate(class_colors_dict.items()):
-                
-    #             # reverse color to have identic color mask as cityscapes
-    #             color_class = np.array(color[1])
-
-    #             color_class[0], color_class[-1] = color_class[-1], color_class[0]
-    #             color_class = tuple(color_class)
-    #             pred_rgb[mask_prediction == c] = color_class
-    #     image_seg = np.copy(image)
-    #     # boolean indexing and assignment based on mask
-    #     image_seg[(mask==255).all(-1)] = [0,255,0]
-    #     image_seg = cv2.addWeighted(image_seg, 0.3, image, 0.7, 0, image_seg)
-    #     image_seg = cv2.resize(image_seg, (512, 512))
+    metrics_dict[0] = { "IoU": np.mean(iou_metrics),"F1": np.mean(f1_score_metrics)
+                               }
+    print(metrics_dict)
        
-    #     result = np.hstack([image_seg])
-
-    #     image_filename = os.path.join(output_dir, str(index)+".png")
-    #     cv2.imwrite(image_filename, result)
-
-
-    # IoU_metrics = np.concatenate(IoU_metrics)
-    # mean_iou = float(IoU_metrics.mean())
-    
-    # metrics_dict = {"IoU":mean_iou}
-
-    # logger.debug(metrics_dict)
-    
-    # report_filename = os.path.join(output_dir, "test_report.json")
-    # with open(report_filename, 'w') as json_file:
-    #     json.dump(metrics_dict, json_file, indent=4)
-
-    # logger.info("------")
-    # logger.info("Evaluation Done")
-    # logger.info("------")
+    logger.info("Done")
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='MetricLeReS inference (video/webcam)', fromfile_prefix_chars='@')
+    parser = argparse.ArgumentParser(description='Evaluation data generation', fromfile_prefix_chars='@')
 
     # Input
-    parser.add_argument('-i', '--input', help='csv path', type=str, default='0')
     parser.add_argument('-c', '--checkpoint_path',type=str,   help='path to a checkpoint to load', default='')
     parser.add_argument("-d", "--hardware", type=str, help="device - gpu/cpu", default='cuda')
     args = parser.parse_args()
-
+    
     main(args)
