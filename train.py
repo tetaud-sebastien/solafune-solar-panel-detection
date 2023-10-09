@@ -100,7 +100,7 @@ def main(config):
     torch.manual_seed(seed)
     
 
-    model = smp.Unet(encoder_name="resnet18", encoder_weights="imagenet",in_channels=3, classes=1, activation="sigmoid")
+    model = smp.PSPNet(encoder_name="resnet18", encoder_weights="imagenet",in_channels=3, classes=1, activation="sigmoid")
 
     logger.info("Number of GPU(s) {}: ".format(torch.cuda.device_count()))
     logger.info("GPU(s) in used {}: ".format(gpu_device))
