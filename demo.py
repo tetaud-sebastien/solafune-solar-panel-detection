@@ -81,7 +81,6 @@ def main(args):
     """
     
     model_path = args.checkpoint_path
-    source = args.input
     hardware = args.hardware
    
     if hardware=='cuda':
@@ -193,7 +192,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluation data generation', fromfile_prefix_chars='@')
 
     # Input
-    parser.add_argument('-i', '--input', help='csv path input')
     parser.add_argument('-c', '--checkpoint_path',type=str,   help='path to a checkpoint to load', default='')
     parser.add_argument("-d", "--hardware", type=str, help="device - gpu/cpu", default='cuda')
     args = parser.parse_args()
