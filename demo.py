@@ -102,15 +102,21 @@ def main(args):
         print("Model run on: {}".format(hardware))
         print("------")
 
-    prediction_dir = "inference_test"
-    if not os.path.exists("inference_test"):
-        print("Create prediction directory...")
-        os.makedirs(prediction_dir, exist_ok=True)
+    
     # Read input
-    input = args.input
+    input = "/home/sebastien/Documents/projects/solafune-solar-panel-detection/data/evaluation"
     output = "/home/sebastien/Documents/projects/solafune-solar-panel-detection/data/submit"
-    images_path = natsort.natsorted(glob.glob(os.path.join(input, "*.tif"), recursive=False))
 
+    if not os.path.isdir(output):
+        logger.info("Create submit directory to tif files...")
+        os.mkdir(output)
+
+    prediction_dir = "inference_eval"
+    if not os.path.exists("inference_eval"):
+        logger.info("Create prediction directory to save png...")
+        os.makedirs(prediction_dir, exist_ok=True)
+
+    images_path = natsort.natsorted(glob.glob(os.path.join(input, "*.tif"), recursive=False))
     eval_masks = natsort.natsorted(glob.glob(os.path.join("/home/sebastien/Documents/projects/solafune-solar-panel-detection/data/sample", "*.tif"), recursive=False))
 
     for i in range(len(images_path)):
@@ -120,7 +126,6 @@ def main(args):
         image = image_preprocessing(path_image)
         
         h, w, _ = image.shape
-
 
         image = cv2.resize(image, (32, 32),interpolation=cv2.INTER_NEAREST)/255.0
         image = np.transpose(image, (2,1,0))
@@ -149,10 +154,8 @@ def main(args):
         binary_predictions = torch.unsqueeze(binary_predictions,dim=0)
         binary_predictions = binary_predictions.detach().cpu().numpy()
         
-        logger.info("binary_predictions +> {}".format(binary_predictions.shape))
         eval_masks_path = eval_masks[i]
         mask_sample = xr.open_rasterio(eval_masks_path, mask=True)
-        logger.info("mask_sample +> {}".format(mask_sample.shape))
         
 
         x = mask_sample['x'].values
@@ -161,13 +164,10 @@ def main(args):
 
 
         final = xar.DataArray(binary_predictions, dims=('band','y', 'x'), coords={'band': band,'y': np.arange(0.5,binary_predictions.shape[1],1), 'x': np.arange(0.5,binary_predictions.shape[2])})
-        logger.info("final +> {}".format(final.shape))
 
         # mask_sample.values = binary_predictions
         # # Write the xarray DataArray to a TIF file
         head, tail = os.path.split(path_image)
-
-        final.rio.to_raster('sample.tif')
         filename_tif = os.path.join(output,tail.replace("image","mask"))
 
         final.rio.to_raster(filename_tif)
@@ -186,7 +186,7 @@ def main(args):
         filename = os.path.join(prediction_dir, f'evaluation_mask_{i}.png')
         cv2.imwrite(filename, image_to_save)
        
-
+    logger.info("Done")
 
 if __name__ == '__main__':
 
