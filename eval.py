@@ -105,13 +105,13 @@ def main(args):
     # Read input
     input = "/home/sebastien/Documents/projects/solafune-solar-panel-detection/data/evaluation"
     output = "/home/sebastien/Documents/projects/solafune-solar-panel-detection/data/eval_model"
-
+    prediction_dir = "/home/sebastien/Documents/projects/solafune-solar-panel-detection/data/eval_model_png"
     if not os.path.isdir(output):
         logger.info("Create submit directory to tif files...")
         os.mkdir(output)
 
-    prediction_dir = "inference_eval"
-    if not os.path.exists("inference_eval"):
+    
+    if not os.path.exists(prediction_dir):
         logger.info("Create prediction directory to save png...")
         os.makedirs(prediction_dir, exist_ok=True)
 
@@ -172,15 +172,12 @@ def main(args):
         
         from sklearn.metrics import f1_score
         from sklearn.metrics import jaccard_score
-        logger.warning(binary_predictions.shape)
         f1_score_metrics.append(f1_score(mask_gt[0,:,:].flatten(), binary_predictions[0,:,:].flatten(),average='binary'))
         iou_metrics.append(jaccard_score(mask_gt[0,:,:].flatten(), binary_predictions[0,:,:].flatten(),average='binary'))
         
-
         x = mask_sample['x'].values
         y = mask_sample['y'].values
         band = mask_sample['band'].values
-
 
         final = xar.DataArray(binary_predictions, dims=('band','y', 'x'), coords={'band': band,'y': np.arange(0.5,binary_predictions.shape[1],1), 'x': np.arange(0.5,binary_predictions.shape[2])})
         head, tail = os.path.split(path_image)
