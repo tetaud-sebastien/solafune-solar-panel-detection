@@ -47,7 +47,7 @@ def load_model(model_path, device):
         model (nn.Module): The loaded model.
 
     """
-    model = smp.Unet(encoder_name="resnet18", encoder_weights=None,in_channels=3, classes=1, activation='sigmoid')
+    model = smp.Unet(encoder_name="resnet101", encoder_weights=None,in_channels=3, classes=1, activation='sigmoid')
 
     if device.type == 'cpu':
         checkpoint = torch.load(model_path, map_location=device)
