@@ -13,7 +13,7 @@ from loguru import logger
 import rioxarray as xr
 
 import xarray as xar
-
+import tifffile
 import natsort
 import warnings
 warnings.filterwarnings("ignore")
@@ -141,6 +141,22 @@ def main(args):
 
         binary_predictions = (mask_pred > 0.5).astype(np.uint8)
         binary_predictions = binary_predictions[0,:,:]
+
+
+        eval_masks_path = eval_masks[i]
+        mask = tifffile.imread(eval_masks_path).astype(np.float64)
+        # mask_sample = xr.open_rasterio(eval_masks_path, mask=True)
+        shape_mask = mask.shape
+        logger.warning(mask.shape)
+        logger.warning(binary_predictions.shape)
+        binary_predictions = cv2.resize(binary_predictions,(shape_mask[1], shape_mask[0]),interpolation=cv2.INTER_NEAREST)
+        logger.warning(binary_predictions.shape)
+
+        head, tail = os.path.split(path_image)
+        tail = tail.replace("_s2_","_")
+        filename_tif = os.path.join(output,tail.replace("image","mask"))
+        tifffile.imwrite(filename_tif, binary_predictions)
+
         pred_rgb = np.zeros((binary_predictions.shape[0], binary_predictions.shape[1], 3), dtype=np.uint8)
         pred_rgb[..., 0] = binary_predictions * 255  
         pred_rgb[..., 1] = binary_predictions * 255  
@@ -153,23 +169,22 @@ def main(args):
         binary_predictions = torch.unsqueeze(binary_predictions,dim=0)
         binary_predictions = binary_predictions.detach().cpu().numpy()
         
-        eval_masks_path = eval_masks[i]
-        mask_sample = xr.open_rasterio(eval_masks_path, mask=True)
+        
         
 
-        x = mask_sample['x'].values
-        y = mask_sample['y'].values
-        band = mask_sample['band'].values
+        # x = mask_sample['x'].values
+        # y = mask_sample['y'].values
+        # band = mask_sample['band'].values
 
-
-        final = xar.DataArray(binary_predictions, dims=('band','y', 'x'), coords={'band': band,'y': np.arange(0.5,binary_predictions.shape[1],1), 'x': np.arange(0.5,binary_predictions.shape[2])})
-
+        
+        
+        # final = xar.DataArray(binary_predictions, dims=('y', 'x'), coords={'y': np.arange(0.5,binary_predictions.shape[1],1), 'x': np.arange(0.5,binary_predictions.shape[2])})
+        # print(binary_predictions.shape)
         # mask_sample.values = binary_predictions
         # # Write the xarray DataArray to a TIF file
-        head, tail = os.path.split(path_image)
-        filename_tif = os.path.join(output,tail.replace("image","mask"))
+        # final.rio.to_raster(filename_tif)
 
-        final.rio.to_raster(filename_tif)
+        
 
         image = image[0,:,:,:]
 
