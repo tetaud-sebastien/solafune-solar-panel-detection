@@ -37,14 +37,14 @@ g = np.hstack(g)
 
 
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.75, test_size=0.25)
+X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.90, test_size=0.10)
 
 tpot = TPOTClassifier(generations=100, population_size=100,
                           offspring_size=None, mutation_rate=0.9,
                           crossover_rate=0.1,
-                          scoring='f1', cv=5,
+                          scoring='f1', cv=2,
                           subsample=1.0, n_jobs=14,
-                          max_time_mins=10, max_eval_time_mins=10,
+                          max_time_mins=2000, max_eval_time_mins=2000,
                           random_state=None, config_dict=None,
                           template=None,
                           warm_start=False,

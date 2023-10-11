@@ -32,6 +32,8 @@ from sklearn.metrics import jaccard_score
 from loguru import logger
 import segmentation_models_pytorch as smp
 
+import warnings
+warnings.simplefilter('ignore')
 
 def main(config):
     """Main function for training and evaluating the model.
@@ -100,7 +102,8 @@ def main(config):
     torch.manual_seed(seed)
     
 
-    model = smp.Unet(encoder_name="resnet101", encoder_weights=None,in_channels=3, classes=1, activation="sigmoid")
+    # model = smp.Unet(encoder_name="resnet101", encoder_weights=None,in_channels=3, classes=1, activation="sigmoid")
+    model = smp.Unet(encoder_name="resnet50", encoder_weights=None,in_channels=12, classes=1, activation="sigmoid")
 
     logger.info("Number of GPU(s) {}: ".format(torch.cuda.device_count()))
     logger.info("GPU(s) in used {}: ".format(gpu_device))
@@ -118,7 +121,7 @@ def main(config):
     logger.info("------")
 
     # Define Optimizer
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=lr)
 
     # Load train and test data path
     train_path = pd.read_csv('data_splits/train_path.csv')
@@ -149,7 +152,7 @@ def main(config):
 
         model.train()
 
-        with tqdm(total=(len(train_dataset) - len(train_dataset) % batch_size), colour='#3eedc4') as t:
+        with tqdm(total=(len(train_dataset) - len(train_dataset) % batch_size), ncols = 100, colour='#3eedc4') as t:
             t.set_description('epoch: {}/{}'.format(epoch, num_epochs - 1))
 
             for data in train_dataloader:
@@ -243,10 +246,10 @@ def main(config):
                 eval_loss = criterion_seg(seg_preds[:, 0, :, :].to(
                     torch.float32), seg_targets.to(torch.float32))
 
-            val_log(epoch=epoch, step=index, loss=eval_loss, images_inputs=images_inputs,
-                    seg_targets=seg_targets, seg_preds=seg_preds,
-                    tensorboard_writer=val_tensorboard_writer, name="Validation",
-                    prediction_dir=prediction_dir)
+            # val_log(epoch=epoch, step=index, loss=eval_loss, images_inputs=images_inputs,
+            #         seg_targets=seg_targets, seg_preds=seg_preds,
+            #         tensorboard_writer=val_tensorboard_writer, name="Validation",
+            #         prediction_dir=prediction_dir)
 
             eval_losses.update(eval_loss.item(), len(images_inputs))
             preds = seg_preds.detach().cpu().numpy()
