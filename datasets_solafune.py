@@ -110,18 +110,11 @@ def image_preprocessing(image_path):
     red = image[3,:,:]
     green = image[2,:,:]
     blue = image[1,:,:]
-    list_image = []
-    for i in range(12):
-        tmp = image[i,:,:]
-        tmp = normalize(red)
-        list_image.append(tmp)
-
-    list_image = tuple(list_image)
+    
     red_n = normalize(red)
     green_n = normalize(green)
     blue_n = normalize(blue)
-    # rgb_composite_n= np.dstack((red_n, green_n, blue_n))
-    rgb_composite_n= np.dstack(list_image)
+    rgb_composite_n= np.dstack((red_n, green_n, blue_n))
     return rgb_composite_n
 
 

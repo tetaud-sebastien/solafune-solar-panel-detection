@@ -103,7 +103,7 @@ def main(config):
     
 
     # model = smp.Unet(encoder_name="resnet101", encoder_weights=None,in_channels=3, classes=1, activation="sigmoid")
-    model = smp.Unet(encoder_name="resnet50", encoder_weights=None,in_channels=12, classes=1, activation="sigmoid")
+    model = smp.Unet(encoder_name="resnet50", encoder_weights=None,in_channels=3, classes=1, activation="sigmoid")
 
     logger.info("Number of GPU(s) {}: ".format(torch.cuda.device_count()))
     logger.info("GPU(s) in used {}: ".format(gpu_device))
