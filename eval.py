@@ -154,9 +154,13 @@ def main(args):
         pred_rgb[..., 1] = binary_predictions * 255  
         pred_rgb[..., 2] = binary_predictions * 255
         pred_rgb = cv2.resize(pred_rgb,(w,h),interpolation=cv2.INTER_NEAREST)
+        
 
         mask_gt = xr.open_rasterio(eval_masks[i], masked=True)
         mask_gt = mask_gt.values
+
+
+
         
         binary_predictions = torch.Tensor(pred_rgb[:,:,0])/255.0
         binary_predictions = binary_predictions.to(torch.int)
